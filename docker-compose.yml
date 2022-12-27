@@ -1,6 +1,17 @@
 version: '2'
 
 services:
+  otel-collector:
+    image: otel/opentelemetry-collector:0.68.0
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSTEP_ACCESS_TOKEN}"
+    ports:
+      - "13133:13133"
+      - "4317:4317"
+      - "4318:4318"
   config-server:
     image: springcommunity/spring-petclinic-config-server
     container_name: config-server
@@ -14,9 +25,16 @@ services:
     mem_limit: 512M
     depends_on:
       - config-server
-    entrypoint: ["./dockerize","-wait=tcp://config-server:8888","-timeout=60s","--","java", "org.springframework.boot.loader.JarLauncher"]
+      - otel-collector
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
+      OTEL_SERVICE_NAME: "discovery-server"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+    entrypoint: [ "./dockerize","-wait=tcp://config-server:8888","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher" ]
     ports:
-     - 8761:8761
+      - 8761:8761
 
   customers-service:
     image: springcommunity/spring-petclinic-customers-service
@@ -25,7 +43,14 @@ services:
     depends_on:
      - config-server
      - discovery-server
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "org.springframework.boot.loader.JarLauncher"]
+     - otel-collector
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
+      OTEL_SERVICE_NAME: "customers-service"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
     ports:
     - 8081:8081
 
@@ -36,7 +61,14 @@ services:
     depends_on:
      - config-server
      - discovery-server
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "org.springframework.boot.loader.JarLauncher"]
+     - otel-collector
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
+      OTEL_SERVICE_NAME: "visits-service"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
     ports:
      - 8082:8082
 
@@ -47,7 +79,14 @@ services:
     depends_on:
      - config-server
      - discovery-server
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "org.springframework.boot.loader.JarLauncher"]
+     - otel-collector
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
+      OTEL_SERVICE_NAME: "vets-service"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
     ports:
      - 8083:8083
 
@@ -58,18 +97,16 @@ services:
     depends_on:
      - config-server
      - discovery-server
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "org.springframework.boot.loader.JarLauncher"]
+     - otel-collector
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
+      OTEL_SERVICE_NAME: "api-gateway"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
     ports:
      - 8080:8080
-
-  tracing-server:
-    image: openzipkin/zipkin
-    container_name: tracing-server
-    mem_limit: 512M
-    environment:
-    - JAVA_OPTS=-XX:+UnlockExperimentalVMOptions -Djava.security.egd=file:/dev/./urandom
-    ports:
-     - 9411:9411
 
   admin-server:
     image: springcommunity/spring-petclinic-admin-server
@@ -78,22 +115,13 @@ services:
     depends_on:
      - config-server
      - discovery-server
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "org.springframework.boot.loader.JarLauncher"]
+     - otel-collector
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    environment:
+      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
+      OTEL_SERVICE_NAME: "admin-server"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
     ports:
      - 9090:9090
-
-  ## Grafana / Prometheus
-
-  grafana-server:
-    build: ./docker/grafana
-    container_name: grafana-server
-    mem_limit: 256M
-    ports:
-    - 3000:3000
-
-  prometheus-server:
-    build: ./docker/prometheus
-    container_name: prometheus-server
-    mem_limit: 256M
-    ports:
-    - 9091:9090

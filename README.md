@@ -35,9 +35,12 @@ available by default at http://localhost:8761.
 
 The `master` branch uses an  Alpine linux  with JRE 8 as Docker base. You will find a Java 11 version in the `release/java11` branch.
 
-*NOTE: Under MacOSX or Windows, make sure that the Docker VM has enough memory to run the microservices. The default settings
+*NOTE1: Under MacOSX or Windows, make sure that the Docker VM has enough memory to run the microservices. The default settings
 are usually not enough and make the `docker-compose up` painfully slow.*
 
+*NOTE2: Under Macs with M1 you'll need to install [socat run](https://formulae.brew.sh/formula/socat). Then run `socat TCP-LISTEN:2375,reuseaddr,fork UNIX-CONNECT:/var/run/docker.sock &` and `export DOCKER_HOST=http://127.0.0.1:2375` before tyring to build the images.*
+
+*NOTE3:Run export LIGHTSTEP_ACCESS_TOKEN=<replace-with-lightstep-token> to send telemetry data to [Lightstep](https://lightstep.com/).*
 
 ## Starting services locally with docker-compose and Java
 If you experience issues with running the system via docker-compose you can try running the `./scripts/run_all.sh` script that will start the infrastructure services via docker-compose and all the Java based applications via standard `nohup java -jar ...` command. The logs will be available under `${ROOT}/target/nameoftheapp.log`. 
