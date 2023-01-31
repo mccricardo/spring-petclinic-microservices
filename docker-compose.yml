@@ -1,17 +1,23 @@
 version: '2'
 
 services:
-  otel-collector:
-    image: otel/opentelemetry-collector:0.68.0
-    command: [ "--config=/etc/otel-collector-config.yaml" ]
+  dd-agent:
+    image: gcr.io/datadoghq/agent:7.41.10@sha256:068fda5c2b542ade9055c80e48e65cbdef486d6edf36de557b4c6e683f422dc6
+    container_name: dd-agent
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - ./datadog.yaml:/etc/datadog-agent/datadog.yaml
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSTEP_ACCESS_TOKEN}"
+      DD_API_KEY: "${DD_API_KEY}"
+      DD_HOSTNAME: "ricardo-local"
+      DD_ENV: "ricardo-local"
+      DD_SITE: "datadoghq.com"
+      DD_APM_ENABLED: true
     ports:
-      - "13133:13133"
-      - "4317:4317"
-      - "4318:4318"
+      - "8126:8126"
+
   config-server:
     image: springcommunity/spring-petclinic-config-server
     container_name: config-server
@@ -25,16 +31,27 @@ services:
     mem_limit: 512M
     depends_on:
       - config-server
-      - otel-collector
+      - dd-agent
     volumes:
-      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+      - ./dd-java-agent.jar:/etc/dd-java-agent.jar
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
-      OTEL_SERVICE_NAME: "discovery-server"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-    entrypoint: [ "./dockerize","-wait=tcp://config-server:8888","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher" ]
+      DD_TRACE_AGENT_URL: "http://dd-agent:8126"
+    entrypoint:
+      - "./dockerize"
+      - "-wait=tcp://config-server:8888"
+      - "-timeout=60s"
+      - "--"
+      - "java"
+      - "-javaagent:/etc/dd-java-agent.jar"
+      - "-Ddd.profiling.enabled=true"
+      - "-XX:FlightRecorderOptions=stackdepth=256"
+      - "-Ddd.logs.injection=true"
+      - "-Ddd.appsec.enabled=true"
+      - "-Ddd.service=discovery-server"
+      - "-Ddd.env=ricardo-local"
+      - "org.springframework.boot.loader.JarLauncher"
     ports:
-      - 8761:8761
+      - "8761:8761"
 
   customers-service:
     image: springcommunity/spring-petclinic-customers-service
@@ -43,14 +60,25 @@ services:
     depends_on:
      - config-server
      - discovery-server
-     - otel-collector
+     - dd-agent
     volumes:
-      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+      - ./dd-java-agent.jar:/etc/dd-java-agent.jar
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
-      OTEL_SERVICE_NAME: "customers-service"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
+      DD_TRACE_AGENT_URL: "http://dd-agent:8126"
+    entrypoint:
+      - "./dockerize"
+      - "-wait=tcp://discovery-server:8761"
+      - "-timeout=60s"
+      - "--"
+      - "java"
+      - "-javaagent:/etc/dd-java-agent.jar"
+      - "-Ddd.profiling.enabled=true"
+      - "-XX:FlightRecorderOptions=stackdepth=256"
+      - "-Ddd.logs.injection=true"
+      - "-Ddd.appsec.enabled=true"
+      - "-Ddd.service=customers-service"
+      - "-Ddd.env=ricardo-local"
+      - "org.springframework.boot.loader.JarLauncher"
     ports:
     - 8081:8081
 
@@ -61,14 +89,25 @@ services:
     depends_on:
      - config-server
      - discovery-server
-     - otel-collector
+     - dd-agent
     volumes:
-      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+      - ./dd-java-agent.jar:/etc/dd-java-agent.jar
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
-      OTEL_SERVICE_NAME: "visits-service"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
+      DD_TRACE_AGENT_URL: "http://dd-agent:8126"
+    entrypoint:
+      - "./dockerize"
+      - "-wait=tcp://discovery-server:8761"
+      - "-timeout=60s"
+      - "--"
+      - "java"
+      - "-javaagent:/etc/dd-java-agent.jar"
+      - "-Ddd.profiling.enabled=true"
+      - "-XX:FlightRecorderOptions=stackdepth=256"
+      - "-Ddd.logs.injection=true"
+      - "-Ddd.appsec.enabled=true"
+      - "-Ddd.service=visits-service"
+      - "-Ddd.env=ricardo-local"
+      - "org.springframework.boot.loader.JarLauncher"
     ports:
      - 8082:8082
 
@@ -79,14 +118,25 @@ services:
     depends_on:
      - config-server
      - discovery-server
-     - otel-collector
+     - dd-agent
     volumes:
-      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+      - ./dd-java-agent.jar:/etc/dd-java-agent.jar
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
-      OTEL_SERVICE_NAME: "vets-service"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
+      DD_TRACE_AGENT_URL: "http://dd-agent:8126"
+    entrypoint:
+      - "./dockerize"
+      - "-wait=tcp://discovery-server:8761"
+      - "-timeout=60s"
+      - "--"
+      - "java"
+      - "-javaagent:/etc/dd-java-agent.jar"
+      - "-Ddd.profiling.enabled=true"
+      - "-XX:FlightRecorderOptions=stackdepth=256"
+      - "-Ddd.logs.injection=true"
+      - "-Ddd.appsec.enabled=true"
+      - "-Ddd.service=vets-service"
+      - "-Ddd.env=ricardo-local"
+      - "org.springframework.boot.loader.JarLauncher"
     ports:
      - 8083:8083
 
@@ -97,14 +147,25 @@ services:
     depends_on:
      - config-server
      - discovery-server
-     - otel-collector
+     - dd-agent
     volumes:
-      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+      - ./dd-java-agent.jar:/etc/dd-java-agent.jar
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
-      OTEL_SERVICE_NAME: "api-gateway"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
+      DD_TRACE_AGENT_URL: "http://dd-agent:8126"
+    entrypoint:
+      - "./dockerize"
+      - "-wait=tcp://discovery-server:8761"
+      - "-timeout=60s"
+      - "--"
+      - "java"
+      - "-javaagent:/etc/dd-java-agent.jar"
+      - "-Ddd.profiling.enabled=true"
+      - "-XX:FlightRecorderOptions=stackdepth=256"
+      - "-Ddd.logs.injection=true"
+      - "-Ddd.appsec.enabled=true"
+      - "-Ddd.service=api-gateway"
+      - "-Ddd.env=ricardo-local"
+      - "org.springframework.boot.loader.JarLauncher"
     ports:
      - 8080:8080
 
@@ -115,13 +176,24 @@ services:
     depends_on:
      - config-server
      - discovery-server
-     - otel-collector
+     - dd-agent
     volumes:
-      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+      - ./dd-java-agent.jar:/etc/dd-java-agent.jar
     environment:
-      LIGHTSTEP_ACCESS_TOKEN: "${LIGHTSSTEP_ACCESS_TOKEN}"
-      OTEL_SERVICE_NAME: "admin-server"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-    entrypoint: ["./dockerize","-wait=tcp://discovery-server:8761","-timeout=60s","--","java", "-javaagent:/etc/opentelemetry-javaagent.jar", "org.springframework.boot.loader.JarLauncher"]
+      DD_TRACE_AGENT_URL: "http://dd-agent:8126"
+    entrypoint:
+      - "./dockerize"
+      - "-wait=tcp://discovery-server:8761"
+      - "-timeout=60s"
+      - "--"
+      - "java"
+      - "-javaagent:/etc/dd-java-agent.jar"
+      - "-Ddd.profiling.enabled=true"
+      - "-XX:FlightRecorderOptions=stackdepth=256"
+      - "-Ddd.logs.injection=true"
+      - "-Ddd.appsec.enabled=true"
+      - "-Ddd.service=admin-server"
+      - "-Ddd.env=ricardo-local"
+      - "org.springframework.boot.loader.JarLauncher"
     ports:
      - 9090:9090
